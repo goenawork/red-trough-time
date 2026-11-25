@@ -94,3 +94,17 @@ function runLeague(user){
   const table = teams.slice().sort((p,q) => q.pts-p.pts || (q.gf-q.ga)-(p.gf-p.ga) || q.gf-p.gf);
   return {teams, matches, table};
 }
+
+// ---- Knockout & penghargaan ----
+function cpuKO(a,b){
+  const [x,y]=playMatch(a,b);
+  if(x!==y) return {w:x>y?a:b, s:x+'-'+y};
+  const w=Math.random()<1/(1+Math.exp((b.strength-a.strength)/30));
+  return {w:w?a:b, s:x+'-'+y+' (pen)'};
+}
+function awards(teams,champ){
+  const sc=[],as=[];
+  teams.forEach(t=>Object.entries(t.st).forEach(([n,s])=>{sc.push([n,s.g,t.name]);as.push([n,s.a,t.name]);}));
+  const top=l=>l.sort((a,b)=>b[1]-a[1])[0];
+  return {scorer:top(sc), assist:top(as), coach:champ.coach};
+}
