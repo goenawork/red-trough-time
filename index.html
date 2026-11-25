@@ -98,7 +98,7 @@ async function shootout(opp){
   const dive = `<button onclick="_r(0)">⬅ Lompat Kiri</button><button onclick="_r(1)">⬆ Tengah</button><button onclick="_r(2)">Lompat Kanan ➡</button>`;
   const shot = async (res, z, dv, k, msg) => {
     const side = z%3, row = z<3?0:1;
-    await ask(scene('', '', k)); await wait(80);
+    A.innerHTML = scene('', '', k); await wait(80);
     let dx = TX[side]-200, dy = TY[row]-225;
     if (res==='miss'){ if (rnd(2)) { dx = (side===2?1:side===0?-1:(rnd(2)?1:-1))*108; } else dy = -212; }
     $('#ball').style.transform = `translate(${dx}px,${dy}px) scale(.55)`;
