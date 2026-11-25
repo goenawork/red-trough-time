@@ -40,7 +40,7 @@ RTT.players.push(
   ["Fabinho",               "DM",  3, 88, 2018, 2022],
   ["Naby Keïta",            "CM",  8, 76, 2018, 2022],
   ["Adam Lallana",          "AM", 20, 80, 2014, 2019],
-  ["Philippe Coutinho",     "AM", 10, 88, 2013, 2017],
+  ["Philippe Coutinho",     "AM", 10, 93, 2013, 2017],
   ["Takumi Minamino",       "AM", 18, 70, 2019, 2021, 1],
 
   // Sayap
