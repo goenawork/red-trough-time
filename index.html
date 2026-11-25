@@ -15,53 +15,98 @@
 <script src="data/players_2020s.js"></script>
 <script src="engine.js"></script>
 <script>
-const app = document.getElementById('app');
-const S = {};
-const card = (p, label) => `<div class="card ${tier(p.rating)}"><b>${p.rating}</b><span class="pos">${p.pos}</span><div class="nm">${p.name}</div><small>#${p.num}${p.chk?'*':''} · ${label||''}</small></div>`;
+const A = document.getElementById('app'), S = {}, P = {};
+const $ = q => A.querySelector(q), wait = ms => new Promise(r => setTimeout(r, ms));
+const ask = (html, init) => new Promise(res => { A.innerHTML = html; window._r = res; init && init(); });
+const cardH = p => `<div class="card ${tier(p.rating)}"><b>${p.rating}</b><i>${p.pos||p.formation}</i><div class="nm">${p.name}</div><small>${p.num?'#'+p.num+(p.chk?'*':''):'Formasi '+p.formation}</small></div>`;
+const draw3 = fn => { const o = []; for (let g=0; o.length<3 && g<60; g++) { const x = fn(); if (!o.includes(x)) o.push(x); } return o; };
 
 function home(){
-  app.innerHTML = `<h1>RED THROUGH TIME</h1>
-    <p class="sub">Susun skuad Liverpool dari semua era dan arungi liga 24 tim.</p>
-    <input id="tn" placeholder="Nama timmu" maxlength="24" value="${S.name||''}">
-    <button onclick="toCoach()">Mulai</button>`;
+  A.innerHTML = `<h1>RED THROUGH TIME</h1><p class="sub">Kumpulkan legenda Liverpool dari semua era, taklukkan liga, lalu menangkan adu penalti.</p>
+  <input id="tn" placeholder="Nama timmu" maxlength="24" value="${S.name||''}"><br><button onclick="startGame()">Mulai</button>`;
 }
-function toCoach(){
-  S.name = (document.getElementById('tn').value || 'My Reds').trim();
-  S.coach = null;
-  app.innerHTML = `<h2>${S.name}</h2><p>Langkah 1: tarik pelatih</p><div id="out"></div>
-    <button id="btn" onclick="gachaCoach()">Tarik Pelatih</button>`;
+async function pack(title, items){
+  A.innerHTML = `<h2>${title}</h2><div class="trio">${items.map(()=>'<div class="pk"><div class="back">RED</div></div>').join('')}</div><p class="note">Membuka pack...</p>`;
+  const el = [...A.querySelectorAll('.pk')];
+  for (let i=0; i<el.length; i++){ await wait(650); el[i].innerHTML = cardH(items[i]); el[i].classList.add('open', tier(items[i].rating)); }
+  $('.note').textContent = 'Pilih satu kartu!';
+  return new Promise(res => el.forEach((e,i) => e.onclick = () => res(items[i])));
 }
-function gachaCoach(){
-  S.coach = drawCoach();
-  document.getElementById('out').innerHTML = `<div class="card ${tier(S.coach.rating)}"><b>${S.coach.rating}</b><span class="pos">${S.coach.formation}</span><div class="nm">${S.coach.name}</div><small>Formasi ${S.coach.formation}</small></div>`;
-  document.getElementById('btn').outerHTML = `<button onclick="toPlayers()">Lanjut: tarik pemain</button>`;
+async function startGame(){
+  S.name = ($('#tn').value || 'My Reds').trim();
+  S.coach = await pack('Pack Pelatih', draw3(drawCoach));
+  S.xi = [];
+  for (const slot of FORM[S.coach.formation]){
+    S.xi.push(await pack(`${S.name} · ${S.coach.name} (${S.coach.formation}) · Slot ${S.xi.length+1}/11: ${slot}`, draw3(() => drawPlayer(slot, S.xi))));
+  }
+  const line = g => `<div class="line">${S.xi.filter(p=>p.grp===g).map(cardH).join('')}</div>`;
+  await ask(`<h2>${S.name}</h2><p class="sub">Pelatih: ${S.coach.name} · ${S.coach.formation}</p><div class="pitch">${line('ST')}${line('MF')}${line('DF')}${line('GK')}</div>
+    <p>Kekuatan tim: <b>${strength(S.xi,S.coach).toFixed(1)}</b></p><button onclick="_r()">Mulai Liga</button>`);
+  league();
 }
-function toPlayers(){ S.slots = FORM[S.coach.formation]; S.xi = []; drawView(); }
-function drawView(){
-  const n = S.xi.length, done = n === 11;
-  const rows = S.slots.map((s,i) => `<div class="slot">${S.xi[i] ? card(S.xi[i], S.xi[i].grp) : `<div class="card empty"><span class="pos">${s}</span><div class="nm">?</div></div>`}</div>`).join('');
-  app.innerHTML = `<h2>${S.name} · ${S.coach.name} (${S.coach.formation})</h2>
-    <p>Langkah 2: tarik pemain (${n}/11)</p><div class="grid">${rows}</div>
-    ${done ? `<p>Kekuatan tim: <b>${strength(S.xi,S.coach).toFixed(1)}</b></p><button onclick="league()">Mulai Liga</button>`
-           : `<button onclick="gachaPlayer()">Tarik ${S.slots[n]}</button>`}
-    <p class="note">* nomor punggung belum diverifikasi</p>`;
-}
-function gachaPlayer(){ S.xi.push(drawPlayer(S.slots[S.xi.length], S.xi)); drawView(); }
-
 function league(){
-  const r = S.res = runLeague({name:S.name, xi:S.xi, coach:S.coach});
-  const me = r.teams[0], pos = r.table.indexOf(me)+1;
-  const status = pos<=8 ? 'Lolos langsung ke 16 besar!' : 'Masuk babak playoff (peringkat 9-24).';
-  const mine = r.matches.filter(m => m.h===0 || m.a===0).map(m => {
-    const home = m.h===0, opp = r.teams[home?m.a:m.h], f = home?m.gh:m.ga, a = home?m.ga:m.gh;
-    return `<li class="${f>a?'w':f<a?'l':'d'}">${home?'(H)':'(A)'} ${opp.name}${opp.champ?' 🏆':''} <b>${f}-${a}</b></li>`;
-  }).join('');
-  const tbl = r.table.map((t,i) => `<tr class="${t.user?'me':''} ${i<8?'top':i<24?'po':''}"><td>${i+1}</td><td>${t.name}${t.champ?' 🏆':''}</td><td>${t.w+t.d+t.l}</td><td>${t.w}-${t.d}-${t.l}</td><td>${t.gf-t.ga}</td><td><b>${t.pts}</b></td></tr>`).join('');
-  app.innerHTML = `<h2>Hasil Liga</h2><p class="status">${me.name} finis peringkat ${pos}. ${status}</p>
-    <ol class="matches">${mine}</ol>
-    <div class="wrap"><table><tr><th>#</th><th>Tim</th><th>M</th><th>M-S-K</th><th>SG</th><th>Poin</th></tr>${tbl}</table></div>
-    <p class="note">🏆 = skuad juara PL/UCL (lebih kuat). Babak knockout dan adu penalti menyusul di tahap berikutnya.</p>
-    <button onclick="home()">Main Lagi</button>`;
+  const r = S.res = runLeague({name:S.name, xi:S.xi, coach:S.coach}), me = S.user = r.teams[0], pos = r.table.indexOf(me)+1;
+  const mine = r.matches.filter(m => m.h===0||m.a===0).map(m => { const h = m.h===0, o = r.teams[h?m.a:m.h], f = h?m.gh:m.ga, a = h?m.ga:m.gh;
+    return `<li class="${f>a?'w':f<a?'l':''}">${h?'(H)':'(A)'} ${o.name}${o.champ?' 🏆':''} <b>${f}-${a}</b></li>`; }).join('');
+  const tbl = r.table.map((t,i) => `<tr class="${t.user?'me':''} ${i<8?'top':'po'}"><td>${i+1}</td><td>${t.name}${t.champ?' 🏆':''}</td><td>${t.w}-${t.d}-${t.l}</td><td>${t.gf-t.ga}</td><td><b>${t.pts}</b></td></tr>`).join('');
+  A.innerHTML = `<h2>Hasil Liga</h2><p class="status">Peringkat ${pos}: ${pos<=8?'lolos langsung ke 16 besar!':'main playoff.'}</p><ol class="matches">${mine}</ol>
+    <div class="wrap"><table><tr><th>#</th><th>Tim</th><th>M-S-K</th><th>SG</th><th>Poin</th></tr>${tbl}</table></div>
+    <button onclick="knockout()">Lanjut ke Knockout</button>`;
+}
+async function round(list, name){
+  const win = [], log = [];
+  for (let i=0; i<list.length; i+=2){
+    const a = list[i], b = list[i+1];
+    if (a.user || b.user){
+      const opp = a.user ? b : a, r = await shootout(opp);
+      win.push(r.won ? S.user : opp); log.push(`<li class="me">${S.name} ${r.us}-${r.os} ${opp.name} (penalti) ${r.won?'✅':'❌'}</li>`);
+    } else { const r = cpuKO(a,b); win.push(r.w); log.push(`<li>${a.name} ${r.s} ${b.name} → <b>${r.w.name}</b></li>`); }
+  }
+  await ask(`<h2>${name}</h2><ul class="ko">${log.join('')}</ul><button onclick="_r()">Lanjut</button>`);
+  return win;
+}
+async function knockout(){
+  const T = S.res.table, po = [];
+  for (let i=0; i<8; i++) po.push(T[8+i], T[23-i]);
+  const w = await round(po, 'Playoff'), r16 = [];
+  for (let i=0; i<8; i++) r16.push(T[i], w[7-i]);
+  let cur = await round(r16, '16 Besar');
+  cur = await round(cur, 'Perempat Final'); cur = await round(cur, 'Semifinal'); cur = await round(cur, 'Final');
+  const ch = cur[0], aw = awards(S.res.teams, ch), you = ch === S.user;
+  A.innerHTML = `<div class="trophy">${you?'🏆':'🥈'}</div><h1>${ch.name}</h1><p class="status">${you?'KAMU JUARA!':'Juara musim ini'}</p>
+    <p>⚽ Top score: <b>${aw.scorer[0]}</b> (${aw.scorer[1]} gol, ${aw.scorer[2]})</p><p>🎯 Top assist: <b>${aw.assist[0]}</b> (${aw.assist[1]}, ${aw.assist[2]})</p>
+    <p>🧠 Pelatih terbaik: <b>${aw.coach.name}</b></p><button onclick="home()">Main Lagi</button>`;
+}
+async function shootout(opp){
+  const pool = S.user.xi.filter(p => p.pos!=='GK'), ord = [];
+  while (ord.length < 5){
+    const i = await ask(`<h2>Adu Penalti vs ${opp.name}</h2><p>Pilih penendang ke-${ord.length+1} dari 5</p><div class="grid">${pool.map((p,i)=>`<div onclick="_r(${i})" class="${ord.includes(pool[i])?'sel':''}">${cardH(p)}</div>`).join('')}</div>`);
+    if (!ord.includes(pool[i])) ord.push(pool[i]);
+  }
+  const oo = opp.xi.filter(p => p.pos!=='GK').sort((a,b) => b.rating-a.rating);
+  let us = 0, os = 0, r = 0;
+  const board = m => `<h2>Adu Penalti vs ${opp.name}</h2><div class="score">${S.name} <b>${us}</b> - <b>${os}</b> ${opp.name}</div><p class="msg">${m}</p>`;
+  const flash = async (m, t) => { await ask(board(m)); await wait(t||1000); };
+  const done = after => { const ru = 4-r, ro = after ? 4-r : 5-r; return r<5 ? (us>os+ro || os>us+ru) : (after && us!==os); };
+  while (true){
+    const k = ord[r%5], z = await ask(board(`Penendang: ${k.name} (${k.rating}). Pilih arah!`)+`<div class="goal">${[0,1,2,3,4,5].map(z=>`<button onclick="_r(${z})"></button>`).join('')}</div>`);
+    const side = z%3, pw = await ask(board('Tekan saat power di zona hijau!')+`<div class="power"><i id="pb"></i><u></u></div><button onclick="_r(P.v)">TENDANG</button>`, () => {
+      let t = 0; P.v = 0; P.t = setInterval(() => { t += 0.05; P.v = Math.abs(Math.sin(t)); $('#pb').style.width = P.v*100+'%'; }, 20); });
+    clearInterval(P.t);
+    const dive = [0,0,1,2,2][rnd(5)];
+    const res = Math.random() < (pw>0.93 ? 0.85 : (100-k.rating)/350) ? 'miss' : (dive===side && Math.random() < (pw<.35?.9:pw<.7?.65:.4)) ? 'save' : 'goal';
+    if (res==='goal') us++;
+    await flash(res==='goal'?'⚽ GOL!':res==='save'?'🧤 Ditepis kiper!':'❌ Melebar/melambung!');
+    if (done(false)) break;
+    const ok = oo[r%5 < oo.length ? r%5 : 0], d = await ask(board(`${ok.name} (${ok.rating}) menendang. Pilih arah lompat kiper!`)+`<div class="dive"><button onclick="_r(0)">⬅ Kiri</button><button onclick="_r(1)">⬆ Tengah</button><button onclick="_r(2)">Kanan ➡</button></div>`);
+    const cs = [0,0,1,2,2][rnd(5)];
+    const o = Math.random() < (100-ok.rating)/350 ? 'miss' : (d===cs && Math.random()<.75) ? 'save' : 'goal';
+    if (o==='goal') os++;
+    await flash(o==='goal'?'😬 Lawan mencetak gol':o==='save'?'🧤 TEPISAN! Kamu menyelamatkan!':'🙌 Lawan gagal!');
+    if (done(true)) break;
+    r++;
+  }
+  return {won: us>os, us, os};
 }
 home();
 </script>
