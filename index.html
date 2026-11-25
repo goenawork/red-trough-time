@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RED THROUGH TIME</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app"></main>
+<script src="data/coaches.js"></script>
+<script src="data/players_1990s.js"></script>
+<script src="data/players_2000s.js"></script>
+<script src="data/players_2010s.js"></script>
+<script src="data/players_2020s.js"></script>
+<script src="engine.js"></script>
+<script>
+const app = document.getElementById('app');
+const S = {};
+const card = (p, label) => `<div class="card ${tier(p.rating)}"><b>${p.rating}</b><span class="pos">${p.pos}</span><div class="nm">${p.name}</div><small>#${p.num}${p.chk?'*':''} · ${label||''}</small></div>`;
+
+function home(){
+  app.innerHTML = `<h1>RED THROUGH TIME</h1>
+    <p class="sub">Susun skuad Liverpool dari semua era dan arungi liga 24 tim.</p>
+    <input id="tn" placeholder="Nama timmu" maxlength="24" value="${S.name||''}">
+    <button onclick="toCoach()">Mulai</button>`;
+}
+function toCoach(){
+  S.name = (document.getElementById('tn').value || 'My Reds').trim();
+  S.coach = null;
+  app.innerHTML = `<h2>${S.name}</h2><p>Langkah 1: tarik pelatih</p><div id="out"></div>
+    <button id="btn" onclick="gachaCoach()">Tarik Pelatih</button>`;
+}
+function gachaCoach(){
+  S.coach = drawCoach();
+  document.getElementById('out').innerHTML = `<div class="card ${tier(S.coach.rating)}"><b>${S.coach.rating}</b><span class="pos">${S.coach.formation}</span><div class="nm">${S.coach.name}</div><small>Formasi ${S.coach.formation}</small></div>`;
+  document.getElementById('btn').outerHTML = `<button onclick="toPlayers()">Lanjut: tarik pemain</button>`;
+}
+function toPlayers(){ S.slots = FORM[S.coach.formation]; S.xi = []; drawView(); }
+function drawView(){
+  const n = S.xi.length, done = n === 11;
+  const rows = S.slots.map((s,i) => `<div class="slot">${S.xi[i] ? card(S.xi[i], S.xi[i].grp) : `<div class="card empty"><span class="pos">${s}</span><div class="nm">?</div></div>`}</div>`).join('');
+  app.innerHTML = `<h2>${S.name} · ${S.coach.name} (${S.coach.formation})</h2>
+    <p>Langkah 2: tarik pemain (${n}/11)</p><div class="grid">${rows}</div>
+    ${done ? `<p>Kekuatan tim: <b>${strength(S.xi,S.coach).toFixed(1)}</b></p><button onclick="league()">Mulai Liga</button>`
+           : `<button onclick="gachaPlayer()">Tarik ${S.slots[n]}</button>`}
+    <p class="note">* nomor punggung belum diverifikasi</p>`;
+}
+function gachaPlayer(){ S.xi.push(drawPlayer(S.slots[S.xi.length], S.xi)); drawView(); }
+
+function league(){
+  const r = S.res = runLeague({name:S.name, xi:S.xi, coach:S.coach});
+  const me = r.teams[0], pos = r.table.indexOf(me)+1;
+  const status = pos<=8 ? 'Lolos langsung ke 16 besar!' : 'Masuk babak playoff (peringkat 9-24).';
+  const mine = r.matches.filter(m => m.h===0 || m.a===0).map(m => {
+    const home = m.h===0, opp = r.teams[home?m.a:m.h], f = home?m.gh:m.ga, a = home?m.ga:m.gh;
+    return `<li class="${f>a?'w':f<a?'l':'d'}">${home?'(H)':'(A)'} ${opp.name}${opp.champ?' 🏆':''} <b>${f}-${a}</b></li>`;
+  }).join('');
+  const tbl = r.table.map((t,i) => `<tr class="${t.user?'me':''} ${i<8?'top':i<24?'po':''}"><td>${i+1}</td><td>${t.name}${t.champ?' 🏆':''}</td><td>${t.w+t.d+t.l}</td><td>${t.w}-${t.d}-${t.l}</td><td>${t.gf-t.ga}</td><td><b>${t.pts}</b></td></tr>`).join('');
+  app.innerHTML = `<h2>Hasil Liga</h2><p class="status">${me.name} finis peringkat ${pos}. ${status}</p>
+    <ol class="matches">${mine}</ol>
+    <div class="wrap"><table><tr><th>#</th><th>Tim</th><th>M</th><th>M-S-K</th><th>SG</th><th>Poin</th></tr>${tbl}</table></div>
+    <p class="note">🏆 = skuad juara PL/UCL (lebih kuat). Babak knockout dan adu penalti menyusul di tahap berikutnya.</p>
+    <button onclick="home()">Main Lagi</button>`;
+}
+home();
+</script>
+</body>
+</html>
