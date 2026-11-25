@@ -6,7 +6,8 @@ const FORM = {
   "4-2-3-1":["GK","RB","CB","CB","LB","MF","MF","MF","MF","MF","ST"],
   "3-5-2":  ["GK","CB","CB","CB","MF","MF","MF","MF","MF","ST","ST"]
 };
-const PLAYERS = RTT.players.map(a => ({name:a[0], pos:a[1], num:a[2], rating:a[3], from:a[4], to:a[5], chk:a[6]||0, grp:GRP[a[1]]}));
+const penOf = (pos,r) => Math.min(99, GRP[pos]==='ST'?r : GRP[pos]==='MF'?r-2 : GRP[pos]==='DF'?r-10 : 55+Math.round((r-60)*.3));
+const PLAYERS = RTT.players.map(a => ({name:a[0], pos:a[1], num:a[2], rating:a[3], from:a[4], to:a[5], chk:a[6]||0, grp:GRP[a[1]], pen:penOf(a[1],a[3]), gk:a[1]==='GK'?Math.min(99,a[3]+3):0}));
 const COACHES = RTT.coaches.map(a => ({name:a[0], formation:a[1], rating:a[2], from:a[3], to:a[4]}));
 const rnd = n => Math.floor(Math.random()*n);
 const shuffle = a => { for (let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];} return a; };
