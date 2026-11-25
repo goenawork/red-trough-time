@@ -16,8 +16,8 @@ RTT.players.push(
   // Bek
   ["Ibrahima Konaté",      "CB",  5, 84, 2021, 2025],
   ["Jarell Quansah",       "CB", 78, 72, 2022, 2024],
-  ["Giovanni Leoni",       "CB", 15, 68, 2025, 2026],
-  ["Jérémy Jacquet",       "CB",  3, 74, 2026, 2026],
+  ["Giovanni Leoni",       "CB", 15, 82, 2025, 2026],
+  ["Jérémy Jacquet",       "CB",  3, 85, 2026, 2026],
   ["Luke Chambers",        "CB",  5, 62, 2022, 2026],
   ["Neco Williams",        "RB", 76, 68, 2019, 2020],
   ["Conor Bradley",        "RB", 12, 78, 2022, 2026],
@@ -41,11 +41,12 @@ RTT.players.push(
   ["Federico Chiesa",      "RW", 14, 76, 2024, 2026],
   ["Rio Ngumoha",          "LW", 73, 70, 2025, 2026],
   ["Kaide Gordon",         "RW", 16, 66, 2020, 2026],
+  ["Bradley Barcola",      "LW", 29, 85, 2026, 2026],
   ["Víctor Muñoz",         "RW", 23, 74, 2026, 2026],
 
   // Penyerang
   ["Diogo Jota",           "CF", 20, 87, 2020, 2024],
   ["Darwin Núñez",         "CF", 27, 77, 2022, 2024],
   ["Hugo Ekitike",         "CF", 22, 83, 2025, 2026],
-  ["Alexander Isak",       "CF",  9, 86, 2025, 2026]
+  ["Alexander Isak",       "CF",  9, 92, 2025, 2026]
 );
