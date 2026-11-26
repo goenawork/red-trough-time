@@ -12,9 +12,10 @@ function home(){
 }
 const coachCard = c => `<div class="row"><span class="pill">${c.from}–${c.to}</span><span class="pill gold">${TL(c.rating)}</span></div><div class="av">${ini(c.name)}</div><h3>${c.name}</h3><p class="gold sm">${c.style}</p>
   <div class="stats"><div><small>FORMATION</small><b>${c.formation}</b></div><div><small>TACTICAL BOOST</small><b class="em">${c.boost}</b></div></div><p class="q">${c.tag}</p>`;
+const ncl = k => COACHES.filter(c => TL(c.rating)===k).length;
 async function startGame(){
   S.name = ($('#tn').value || 'My Reds').trim(); S.coach = null; let left = 1;
-  await ask(head('STEP 01 · TECHNICAL AREA','Draft Your Manager','Scout a Liverpool tactician from 1990 to today. Your manager sets the formation and a tactical boost.') + `<div class="narrow"><div id="cc" class="card">?</div><div id="act" class="acts"><button class="btn" onclick="_r()">Draw Manager</button></div></div>`);
+  await ask(head('STEP 01 · TECHNICAL AREA','Draft Your Manager','Scout a Liverpool tactician from 1990 to today. Your manager sets the formation and a tactical boost.') + `<div class="narrow"><div id="cc" class="card pack"><div class="fan"><div class="fc c1">RB</div><div class="fc c2">JK</div><div class="fc c3">AS</div></div><small class="gold">ANFIELD HERITAGE PACK</small><h3>${COACHES.length} Legendary Managers</h3><p class="sub sm">1990 — 2026 · every era, one tactician</p><div class="row3"><span class="pill gold">ELITE ×${ncl('ELITE')}</span><span class="pill">STRONG ×${ncl('STRONG')}</span><span class="pill">SOLID ×${ncl('SOLID')}</span></div></div><div id="act" class="acts"><button class="btn" onclick="_r()">Scout Manager</button></div></div>`);
   let c = drawCoach();
   while (true){
     $('#act').innerHTML = '';
@@ -40,7 +41,7 @@ function draft(){
   const rr = S.left ? `<div class="acts"><small>RE-ROLL (1 LEFT):</small>${[['ALL','Full Squad'],['FW','FW'],['MF','MF'],['DF','DF'],['GK','GK']].map(([k,t])=>`<button class="btn ghost sm" onclick="reroll('${k}')">${t}</button>`).join('')}</div>` : '<div class="acts"><small>No re-roll left</small></div>';
   A.innerHTML = head('STEP 02 · STARTING XI', `${S.coach.name}'s <span class="red">${S.coach.formation}</span> XI`, `Squad OVR <b>${ovr}</b> · ${S.name} · ${S.coach.boost}`) + rr +
     `<div class="acts"><button class="btn" onclick="league()">Enter 24-Team League →</button></div><div class="grid2"><div class="panel pitch">${rows}</div>
-    <div class="panel"><table><tr><th>Pos</th><th>Player</th><th>OVR</th><th>PEN</th></tr>${list}</table></div></div><p class="note"></p>`;
+    <div class="panel"><table><tr><th>Pos</th><th>Player</th><th>OVR</th><th>PEN</th></tr>${list}</table></div></div><p class="note">* nomor punggung belum diverifikasi</p>`;
 }
 function league(){ S.L = leagueSetup({name:S.name, xi:S.xi, coach:S.coach}); S.user = S.L.teams[0]; leagueView(); }
 function simDay(all){ do playDay(S.L); while (all && S.L.day<8); leagueView(); }
@@ -87,11 +88,17 @@ async function knockout(){
     <div class="acts"><button class="btn" onclick="home()">Play Again</button></div>`;
 }
 async function shootout(opp, rname){
-  const pool = S.user.xi.filter(p => p.pos!=='GK'), ord = [];
-  while (ord.length < 5){
-    const i = await ask(head(rname.toUpperCase(), 'Choose Your Takers', `Pick kicker ${ord.length+1} of 5 · ${S.name} vs ${opp.name}`) + `<div class="acts"><button class="btn" onclick="_r(-1)">⚡ Auto-pick (Top Rating)</button></div><div class="narrow panel"><table><tr><th>Pos</th><th>Player</th><th>PEN</th><th></th></tr>${pool.map((p,i)=>`<tr class="${ord.includes(p)?'sel':''}"><td><span class="pos">${p.pos}</span></td><td>${p.name}</td><td>${p.pen}</td><td><button class="btn ghost sm" onclick="_r(${i})">Pick</button></td></tr>`).join('')}</table></div>`);
-    if (i<0){ ord.push(...pool.slice().sort((a,b)=>b.rating-a.rating).slice(0,5)); break; }
-    if (!ord.includes(pool[i])) ord.push(pool[i]);
+  const pool = S.user.xi.filter(p => p.pos!=='GK'); let ord = [];
+  while (true){
+    const i = await ask(head(rname.toUpperCase(), 'Choose Your Takers', `Select 5 takers (${ord.length}/5) · slot order = kick order · ${S.name} vs ${opp.name}`) +
+      `<div class="acts"><button class="btn ghost" onclick="_r(-1)">⚡ Auto: Top Rating</button><button class="btn ghost" onclick="_r(-2)">🎯 Auto: Top PEN</button><button class="btn ghost" onclick="_r(-3)">↺ Clear</button></div>
+      <div class="slots">${[0,1,2,3,4].map(n => `<div class="sl${ord[n]?' on':''}"><small>KICK ${n+1}</small><b>${ord[n]?ord[n].name:'—'}</b>${ord[n]?`<small>OVR ${ord[n].rating} · PEN ${ord[n].pen}</small>`:''}</div>`).join('')}</div>
+      <div class="acts"><button class="btn" ${ord.length<5?'disabled':''} onclick="_r(-9)">Start Shootout →</button></div>
+      <div class="narrow panel"><table><tr><th>Pos</th><th>Player</th><th>OVR</th><th>PEN</th><th></th></tr>${pool.map((p,i)=>`<tr class="${ord.includes(p)?'hi':''}"><td><span class="pos">${p.pos}</span></td><td>${ord.includes(p)?'<b class="gold">#'+(ord.indexOf(p)+1)+'</b> ':''}${p.name}</td><td>${p.rating}</td><td>${p.pen}</td><td><button class="btn ghost sm" onclick="_r(${i})">${ord.includes(p)?'Remove':'Pick'}</button></td></tr>`).join('')}</table></div>`);
+    if (i===-9 && ord.length===5) break;
+    if (i===-1 || i===-2){ const k = i===-1 ? 'rating' : 'pen'; ord = pool.slice().sort((x,y)=>y[k]-x[k]).slice(0,5); }
+    else if (i===-3) ord = [];
+    else if (i>=0){ const p = pool[i], j = ord.indexOf(p); if (j>=0) ord.splice(j,1); else if (ord.length<5) ord.push(p); }
   }
   const byPen = (a,b) => b.pen-a.pen, uGK = S.user.xi.find(p => p.pos==='GK'), oGK = opp.xi.find(p => p.pos==='GK');
   const seq = [...ord, ...pool.filter(p => !ord.includes(p)).sort(byPen), uGK].filter(Boolean);
@@ -105,21 +112,26 @@ async function shootout(opp, rname){
   const scene = (who, k, side, init) => { const gkc = who==='YOUR KICK' ? '#fb923c' : '#10b981'; return head('', '') .replace(/<div class="hd">[\s\S]*<\/div>/,'') + `<div class="panel sbar"><div><span class="chip red">${rname}</span><h2>Penalty Shootout</h2></div>
     <div class="sb"><div><b>${S.name}</b><div class="dots">${dots(ud)}</div></div><span class="sc">${us} - ${os}</span><div><b>${opp.name}</b><div class="dots">${dots(od)}</div></div></div></div>
     <div class="grid2"><div class="panel"><div class="ph"><span class="gold">KICK ${r+1}${r>=5?' · SUDDEN DEATH':''} · ${who}</span><span>${k.name} (PEN ${k.pen})</span></div>
-    <svg viewBox="0 0 400 270" class="pt"><defs><linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#103020"/><stop offset="1" stop-color="#091a10"/></linearGradient></defs>
+    <div class="stage"><svg viewBox="0 0 400 270" class="pt"><defs><linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#103020"/><stop offset="1" stop-color="#091a10"/></linearGradient></defs>
     <rect width="400" height="135" fill="#0d1017"/><rect y="135" width="400" height="135" fill="url(#gr)"/>
     <g stroke="#fff" stroke-opacity=".4" stroke-width="2" fill="none"><path d="M0 135H400"/><rect x="50" y="135" width="300" height="120"/><rect x="120" y="135" width="160" height="50"/></g><circle cx="200" cy="225" r="2.5" fill="#fff" opacity=".6"/>
-    <rect x="110" y="40" width="180" height="95" fill="#c8102e12"/><path d="M110 55h180M110 70h180M110 85h180M110 100h180M110 115h180M128 40v95M146 40v95M164 40v95M182 40v95M200 40v95M218 40v95M236 40v95M254 40v95M272 40v95" stroke="#fff" stroke-opacity=".18" fill="none"/>
+    <rect x="110" y="40" width="180" height="95" fill="#c8102e12"/><g class="net"><path d="M110 55h180M110 70h180M110 85h180M110 100h180M110 115h180M128 40v95M146 40v95M164 40v95M182 40v95M200 40v95M218 40v95M236 40v95M254 40v95M272 40v95" stroke="#fff" stroke-opacity=".18" fill="none"/></g>
     <ellipse cx="200" cy="138" rx="98" ry="4" fill="#000" opacity=".45"/><path d="M110 135V40H290V135" stroke="#fff" stroke-width="5" fill="none"/>
     <circle id="tg" r="10" fill="#d4af3722" stroke="#d4af37" stroke-width="2" visibility="hidden"/>
     <g id="gk" fill="${gkc}"><circle cx="200" cy="84" r="7"/><rect x="190" y="92" width="20" height="30" rx="6"/><rect x="192" y="121" width="6" height="13"/><rect x="202" y="121" width="6" height="13"/><circle cx="184" cy="100" r="4" fill="#fff"/><circle cx="216" cy="100" r="4" fill="#fff"/></g>
-    <circle id="ball" cx="200" cy="225" r="9" fill="#fff"/></svg>
+    <circle id="ball" cx="200" cy="225" r="9" fill="#fff"/></svg></div>
     <div class="kname"><small>${who==='YOUR KICK'?'YOUR TAKER':'OPPONENT TAKER · '+opp.name}</small><b>${k.name}</b><span>${k.pos} · OVR ${k.rating} · PEN ${k.pen}</span></div></div><div class="panel side">${side}</div></div>`; };
-  const shot = async (res, z, dv, who, k, msg) => {
-    A.innerHTML = scene(who, k, `<h3>${msg}</h3>`); await wait(80);
+  const fx = (type, txt) => { const d = document.createElement('div'); d.className = 'fx '+type;
+    d.innerHTML = `<div class="bn">${txt}</div>` + (type==='miss' ? '' : Array.from({length:28}, (_,i) => { const an = i*(Math.PI*2/28), r = 70+rnd(120);
+      return `<i style="--x:${Math.cos(an)*r}px;--y:${Math.sin(an)*r}px;--c:${['#d4af37','#dc1b3a','#ffffff',type==='save'?'#38bdf8':'#10b981'][i%4]}"></i>`; }).join(''));
+    $('.stage').appendChild(d); if (type==='goal') $('.net').classList.add('rip'); if (type==='save') $('#gk').classList.add('glow'); };
+  const shot = async (res, z, dv, who, k, msg, det) => {
+    A.innerHTML = scene(who, k, '<h3>…</h3><p class="sub">The ball is on its way</p>'); await wait(80);
     const side = z%3, row = z<3?0:1; let dx = TX[side]-200, dy = TY[row]-225;
     if (res==='miss'){ if (rnd(2)) dx = (side===2?1:side===0?-1:(rnd(2)?1:-1))*108; else dy = -212; }
     $('#ball').style.transform = `translate(${dx}px,${dy}px) scale(.55)`; $('#gk').style.transform = `translate(${(dv-1)*55}px,${dv===1?-8:6}px) rotate(${(dv-1)*65}deg)`;
-    await wait(1900);
+    await wait(950); fx(res, res==='goal'?'GOAL!':res==='save'?'SAVED!':'MISSED');
+    $('.side').innerHTML = `<h3>${msg}</h3><p class="sub">${det}</p>`; await wait(1500);
   };
   const done = after => { const ru = 4-r, ro = after ? 4-r : 5-r; return r<5 ? (us>os+ro || os>us+ru) : (after && us!==os); };
   while (true){
@@ -132,13 +144,13 @@ async function shootout(opp, rname){
     const res = Math.random() < (pw>0.93 ? 0.85 : (100-k.pen)/350) ? 'miss' : (dv===side && Math.random() < Math.min(.95,(pw<.35?.9:pw<.7?.65:.4)*(z<3?.8:1)*go)) ? 'save' : 'goal';
     if (res==='save') dv = side; else if (dv===side) dv = (side+1+rnd(2))%3;
     if (res==='goal') us++; ud.push(res==='goal');
-    await shot(res, z, dv, 'YOUR KICK', k, res==='goal'?'⚽ GOAL!':res==='save'?'🧤 Saved by the keeper!':'❌ Missed the target!');
+    await shot(res, z, dv, 'YOUR KICK', k, res==='goal'?'Goal for you':res==='save'?'Saved by the keeper':'Off target', `You aimed ${ZN[z]} · keeper dived ${['left','centre','right'][dv]}`);
     if (done(false)) break;
     const ok = oo[r%oo.length], cz = Math.random()<.45 ? hab(ok.name) : rnd(6), cs = cz%3; P.z = -1;
     const d = await ask(scene('THEIR KICK', ok, `<h3>Choose Keeper Dive</h3><p class="sub">Read ${ok.name}'s habits and lock in where your keeper goes. Exact corner = best chance; right side only = partial.</p><div class="zg">${zoneBtns()}</div><button class="btn wide" onclick="P.z>=0&&_r(P.z)">Commit Dive</button>`));
-    const o = Math.random() < (100-ok.pen)/350 ? 'miss' : (Math.random() < Math.min(.95,(d===cz?.8:d%3===cs?.4:0)*gu)) ? 'save' : 'goal';
+    const o = Math.random() < (100-ok.pen)/350 ? 'miss' : (d===cz || (d%3===cs && Math.random() < .5*gu)) ? 'save' : 'goal';
     if (o==='goal') os++; od.push(o==='goal');
-    await shot(o, cz, d%3, 'THEIR KICK', ok, o==='goal'?'😬 They score':o==='save'?'🧤 SAVE! You stopped it!':'🙌 They missed!');
+    await shot(o, cz, d%3, 'THEIR KICK', ok, o==='goal'?'They score':o==='save'?'You stopped it!':'They missed', `They shot ${ZN[cz]} · you chose ${ZN[d]}`);
     if (done(true)) break;
     r++;
   }
