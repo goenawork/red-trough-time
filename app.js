@@ -40,7 +40,7 @@ function draft(){
   const rr = S.left ? `<div class="acts"><small>RE-ROLL (1 LEFT):</small>${[['ALL','Full Squad'],['FW','FW'],['MF','MF'],['DF','DF'],['GK','GK']].map(([k,t])=>`<button class="btn ghost sm" onclick="reroll('${k}')">${t}</button>`).join('')}</div>` : '<div class="acts"><small>No re-roll left</small></div>';
   A.innerHTML = head('STEP 02 · STARTING XI', `${S.coach.name}'s <span class="red">${S.coach.formation}</span> XI`, `Squad OVR <b>${ovr}</b> · ${S.name} · ${S.coach.boost}`) + rr +
     `<div class="acts"><button class="btn" onclick="league()">Enter 24-Team League →</button></div><div class="grid2"><div class="panel pitch">${rows}</div>
-    <div class="panel"><table><tr><th>Pos</th><th>Player</th><th>OVR</th><th>PEN</th></tr>${list}</table></div></div><p class="note">* nomor punggung belum diverifikasi</p>`;
+    <div class="panel"><table><tr><th>Pos</th><th>Player</th><th>OVR</th><th>PEN</th></tr>${list}</table></div></div><p class="note"></p>`;
 }
 function league(){ S.L = leagueSetup({name:S.name, xi:S.xi, coach:S.coach}); S.user = S.L.teams[0]; leagueView(); }
 function simDay(all){ do playDay(S.L); while (all && S.L.day<8); leagueView(); }
