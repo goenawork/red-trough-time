@@ -61,28 +61,36 @@ async function round(list, name){
     const a = list[i], b = list[i+1];
     if (a.user || b.user){
       const opp = a.user ? b : a, r = await shootout(opp, name);
-      win.push(r.won ? S.user : opp); log.push(`<div class="lr me"><span>${S.name} vs ${opp.name} (pens)</span><b>${r.us}–${r.os} ${r.won?'✅':'❌'}</b></div>`);
+      win.push(r.won ? S.user : opp); if (!r.won) S.out = name; log.push(`<div class="lr me"><span>${S.name} vs ${opp.name} (pens)</span><b>${r.us}–${r.os} ${r.won?'✅':'❌'}</b></div>`);
     } else { const r = cpuKO(a,b); win.push(r.w); log.push(`<div class="lr"><span>${a.name} ${r.s} ${b.name}</span><b>${r.w.name}</b></div>`); }
   }
   await ask(head('KNOCKOUT', name) + `<div class="narrow panel">${log.join('')}</div><div class="acts"><button class="btn" onclick="_r()">Continue →</button></div>`);
   return win;
 }
 async function knockout(){
-  const T = tableOf(S.L), po = [];
+  S.out = null; const T = tableOf(S.L), po = [];
   for (let i=0; i<8; i++) po.push(T[8+i], T[23-i]);
   const w = await round(po, 'Knockout Play-off'), r16 = [];
   for (let i=0; i<8; i++) r16.push(T[i], w[7-i]);
   let cur = await round(r16, 'Round of 16');
   cur = await round(cur, 'Quarter-final'); cur = await round(cur, 'Semi-final'); cur = await round(cur, 'Final');
   const ch = cur[0], aw = awards(S.L.teams, ch), you = ch === S.user;
-  A.innerHTML = head('SEASON AWARDS', you?'🏆 You are Champions!':'Champions: '+ch.name, 'Final standings of the Liverpool Eras tournament') +
-    `<div class="awards"><div class="panel"><small class="gold">GOLDEN BOOT</small><h3>${aw.scorer[0]}</h3><p>${aw.scorer[1]} goals · ${aw.scorer[2]}</p></div><div class="panel"><small class="gold">PLAYMAKER</small><h3>${aw.assist[0]}</h3><p>${aw.assist[1]} assists · ${aw.assist[2]}</p></div><div class="panel"><small class="gold">BEST MANAGER</small><h3>${aw.coach.name}</h3><p>${ch.name}</p></div></div>
+  const lst = k => { const m = []; S.L.teams.forEach(t => Object.entries(t.st).forEach(([n,x]) => x[k] && m.push({n, v:x[k], t:t.name, me:t.user})));
+    return m.sort((a,b)=>b.v-a.v).slice(0,10).map((x,i) => `<div class="lr${x.me?' you':''}"><span>${i+1}. ${x.n} ${x.me?`<em>★ ${S.name}</em>`:`<small>${x.t}</small>`}</span><b>${x.v}</b></div>`).join(''); };
+  const me = n => n === S.name ? ' you' : '';
+  A.innerHTML = `<section class="panel final${you?' champ':''}"><span class="chip gold">${you?'★ TOURNAMENT CHAMPIONS ★':'SEASON COMPLETE'}</span><h1>${S.name}</h1><p class="sub">${S.coach.name} · ${S.coach.formation} · ${you?'Crowned champions of the Liverpool Eras tournament.':'Champions: '+ch.name}</p>
+    <span class="pill">Your journey: ${you?'🏆 Champions':'Out in '+(S.out||'the league phase')}</span></section>
+    <div class="awards"><div class="panel${me(aw.scorer[2])}"><small class="gold">GOLDEN BOOT</small><h3>${aw.scorer[0]}</h3><p>${aw.scorer[2]}</p><div class="lr"><span>Tournament goals</span><b>${aw.scorer[1]}</b></div></div>
+    <div class="panel${me(aw.assist[2])}"><small class="em">PLAYMAKER AWARD</small><h3>${aw.assist[0]}</h3><p>${aw.assist[2]}</p><div class="lr"><span>Tournament assists</span><b>${aw.assist[1]}</b></div></div>
+    <div class="panel"><small class="red">BEST MANAGER</small><h3>${aw.coach.name}</h3><p>${ch.name}</p><div class="lr"><span>Tactical rating</span><b>${aw.coach.rating} OVR</b></div></div></div>
+    <div class="grid2e"><div class="panel"><h4>TOP 10 GOALSCORERS</h4>${lst('g')}</div><div class="panel"><h4>TOP 10 ASSIST PROVIDERS</h4>${lst('a')}</div></div>
     <div class="acts"><button class="btn" onclick="home()">Play Again</button></div>`;
 }
 async function shootout(opp, rname){
   const pool = S.user.xi.filter(p => p.pos!=='GK'), ord = [];
   while (ord.length < 5){
-    const i = await ask(head(rname.toUpperCase(), 'Choose Your Takers', `Pick kicker ${ord.length+1} of 5 · ${S.name} vs ${opp.name}`) + `<div class="narrow panel"><table><tr><th>Pos</th><th>Player</th><th>PEN</th><th></th></tr>${pool.map((p,i)=>`<tr class="${ord.includes(p)?'sel':''}"><td><span class="pos">${p.pos}</span></td><td>${p.name}</td><td>${p.pen}</td><td><button class="btn ghost sm" onclick="_r(${i})">Pick</button></td></tr>`).join('')}</table></div>`);
+    const i = await ask(head(rname.toUpperCase(), 'Choose Your Takers', `Pick kicker ${ord.length+1} of 5 · ${S.name} vs ${opp.name}`) + `<div class="acts"><button class="btn" onclick="_r(-1)">⚡ Auto-pick (Top Rating)</button></div><div class="narrow panel"><table><tr><th>Pos</th><th>Player</th><th>PEN</th><th></th></tr>${pool.map((p,i)=>`<tr class="${ord.includes(p)?'sel':''}"><td><span class="pos">${p.pos}</span></td><td>${p.name}</td><td>${p.pen}</td><td><button class="btn ghost sm" onclick="_r(${i})">Pick</button></td></tr>`).join('')}</table></div>`);
+    if (i<0){ ord.push(...pool.slice().sort((a,b)=>b.rating-a.rating).slice(0,5)); break; }
     if (!ord.includes(pool[i])) ord.push(pool[i]);
   }
   const byPen = (a,b) => b.pen-a.pen, uGK = S.user.xi.find(p => p.pos==='GK'), oGK = opp.xi.find(p => p.pos==='GK');
@@ -91,15 +99,21 @@ async function shootout(opp, rname){
   const gu = (uGK ? uGK.gk : 80)/85, go = (oGK ? oGK.gk : 80)/85;
   let us = 0, os = 0, r = 0; const ud = [], od = [];
   const TX = [140,200,260], TY = [62,112], ZN = ['Top Left','Top Center','Top Right','Low Left','Low Center','Low Right'];
+  const hab = n => [...n].reduce((a,c)=>a+c.charCodeAt(0),0)%6;
+  const zoneBtns = () => ZN.map((t,i)=>`<button class="btn ghost zb" onclick="P.z=${i};document.querySelectorAll('.zb').forEach((b,j)=>b.classList.toggle('on',j===${i}));const g=document.getElementById('tg');g.setAttribute('cx',[140,200,260][${i}%3]);g.setAttribute('cy',[62,112][${i}<3?0:1]);g.setAttribute('visibility','visible')">${t}</button>`).join('');
   const dots = a => Array.from({length:Math.max(5,a.length)}, (_,i) => `<i class="${a[i]===undefined?'':a[i]?'g':'x'}"></i>`).join('');
-  const scene = (who, k, side, init) => head('', '') .replace(/<div class="hd">[\s\S]*<\/div>/,'') + `<div class="panel sbar"><div><span class="chip red">${rname}</span><h2>Penalty Shootout</h2></div>
+  const scene = (who, k, side, init) => { const gkc = who==='YOUR KICK' ? '#fb923c' : '#10b981'; return head('', '') .replace(/<div class="hd">[\s\S]*<\/div>/,'') + `<div class="panel sbar"><div><span class="chip red">${rname}</span><h2>Penalty Shootout</h2></div>
     <div class="sb"><div><b>${S.name}</b><div class="dots">${dots(ud)}</div></div><span class="sc">${us} - ${os}</span><div><b>${opp.name}</b><div class="dots">${dots(od)}</div></div></div></div>
     <div class="grid2"><div class="panel"><div class="ph"><span class="gold">KICK ${r+1}${r>=5?' · SUDDEN DEATH':''} · ${who}</span><span>${k.name} (PEN ${k.pen})</span></div>
-    <svg viewBox="0 0 400 270" class="pt"><rect width="400" height="150" fill="#0d1017"/><rect y="150" width="400" height="120" fill="#0f2a1a"/><rect x="60" y="150" width="280" height="110" fill="none" stroke="#fff3" stroke-width="2"/>
-    <rect x="110" y="40" width="180" height="95" fill="#c8102e11" stroke="#fff" stroke-width="5"/><path d="M110 40h180M110 60h180M110 80h180M110 100h180M110 120h180M130 40v95M150 40v95M170 40v95M190 40v95M210 40v95M230 40v95M250 40v95M270 40v95" stroke="#fff2" fill="none"/>
+    <svg viewBox="0 0 400 270" class="pt"><defs><linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#103020"/><stop offset="1" stop-color="#091a10"/></linearGradient></defs>
+    <rect width="400" height="135" fill="#0d1017"/><rect y="135" width="400" height="135" fill="url(#gr)"/>
+    <g stroke="#fff" stroke-opacity=".4" stroke-width="2" fill="none"><path d="M0 135H400"/><rect x="50" y="135" width="300" height="120"/><rect x="120" y="135" width="160" height="50"/></g><circle cx="200" cy="225" r="2.5" fill="#fff" opacity=".6"/>
+    <rect x="110" y="40" width="180" height="95" fill="#c8102e12"/><path d="M110 55h180M110 70h180M110 85h180M110 100h180M110 115h180M128 40v95M146 40v95M164 40v95M182 40v95M200 40v95M218 40v95M236 40v95M254 40v95M272 40v95" stroke="#fff" stroke-opacity=".18" fill="none"/>
+    <ellipse cx="200" cy="138" rx="98" ry="4" fill="#000" opacity=".45"/><path d="M110 135V40H290V135" stroke="#fff" stroke-width="5" fill="none"/>
     <circle id="tg" r="10" fill="#d4af3722" stroke="#d4af37" stroke-width="2" visibility="hidden"/>
-    <g id="gk" fill="#fb923c"><circle cx="200" cy="82" r="7"/><rect x="190" y="90" width="20" height="28" rx="6"/><circle cx="184" cy="98" r="4" fill="#fff"/><circle cx="216" cy="98" r="4" fill="#fff"/></g>
-    <circle id="ball" cx="200" cy="225" r="9" fill="#fff"/></svg></div><div class="panel side">${side}</div></div>`;
+    <g id="gk" fill="${gkc}"><circle cx="200" cy="84" r="7"/><rect x="190" y="92" width="20" height="30" rx="6"/><rect x="192" y="121" width="6" height="13"/><rect x="202" y="121" width="6" height="13"/><circle cx="184" cy="100" r="4" fill="#fff"/><circle cx="216" cy="100" r="4" fill="#fff"/></g>
+    <circle id="ball" cx="200" cy="225" r="9" fill="#fff"/></svg>
+    <div class="kname"><small>${who==='YOUR KICK'?'YOUR TAKER':'OPPONENT TAKER · '+opp.name}</small><b>${k.name}</b><span>${k.pos} · OVR ${k.rating} · PEN ${k.pen}</span></div></div><div class="panel side">${side}</div></div>`; };
   const shot = async (res, z, dv, who, k, msg) => {
     A.innerHTML = scene(who, k, `<h3>${msg}</h3>`); await wait(80);
     const side = z%3, row = z<3?0:1; let dx = TX[side]-200, dy = TY[row]-225;
@@ -110,21 +124,21 @@ async function shootout(opp, rname){
   const done = after => { const ru = 4-r, ro = after ? 4-r : 5-r; return r<5 ? (us>os+ro || os>us+ru) : (after && us!==os); };
   while (true){
     const k = seq[r%seq.length]; P.z = -1;
-    const kick = await ask(scene('YOUR KICK', k, `<h3>Choose Shot Placement</h3><p class="sub">Pick a corner, then strike while the power bar is inside the sweet spot.</p><div class="zg">${ZN.map((t,i)=>`<button class="btn ghost zb" onclick="P.z=${i};document.querySelectorAll('.zb').forEach((b,j)=>b.classList.toggle('on',j===${i}));const g=document.getElementById('tg');g.setAttribute('cx',[140,200,260][${i}%3]);g.setAttribute('cy',[62,112][${i}<3?0:1]);g.setAttribute('visibility','visible')">${t}</button>`).join('')}</div>
+    const kick = await ask(scene('YOUR KICK', k, `<h3>Choose Shot Placement</h3><p class="sub">Pick a corner, then strike while the power bar is inside the sweet spot.</p><div class="zg">${zoneBtns()}</div>
       <small class="mut">SHOT POWER</small><div class="power"><i id="pb"></i><u></u></div><button class="btn wide" onclick="P.z>=0&&_r({z:P.z,pw:P.v})">Strike Penalty</button>`), () => {
       let t = 0; P.v = 0; P.t = setInterval(() => { t += 0.05; P.v = Math.abs(Math.sin(t)); $('#pb').style.width = P.v*100+'%'; }, 20); });
     clearInterval(P.t); const z = kick.z, pw = kick.pw, side = z%3;
-    let dv = [0,0,1,2,2][rnd(5)];
+    let dv = Math.random()<.4 ? hab(oGK?oGK.name:'')%3 : [0,0,1,2,2][rnd(5)];
     const res = Math.random() < (pw>0.93 ? 0.85 : (100-k.pen)/350) ? 'miss' : (dv===side && Math.random() < Math.min(.95,(pw<.35?.9:pw<.7?.65:.4)*(z<3?.8:1)*go)) ? 'save' : 'goal';
     if (res==='save') dv = side; else if (dv===side) dv = (side+1+rnd(2))%3;
     if (res==='goal') us++; ud.push(res==='goal');
     await shot(res, z, dv, 'YOUR KICK', k, res==='goal'?'⚽ GOAL!':res==='save'?'🧤 Saved by the keeper!':'❌ Missed the target!');
     if (done(false)) break;
-    const ok = oo[r%oo.length], cz = rnd(6), cs = cz%3;
-    const d = await ask(scene('THEIR KICK', ok, `<h3>Anticipate the Kick</h3><p class="sub">${ok.name} steps up. Choose which way your keeper dives.</p><button class="btn ghost wide" onclick="_r(0)">⬅ Dive Left</button><button class="btn ghost wide" onclick="_r(1)">⬆ Stay Center</button><button class="btn ghost wide" onclick="_r(2)">Dive Right ➡</button>`));
-    const o = Math.random() < (100-ok.pen)/350 ? 'miss' : (d===cs && Math.random()<Math.min(.95,.75*gu)) ? 'save' : 'goal';
+    const ok = oo[r%oo.length], cz = Math.random()<.45 ? hab(ok.name) : rnd(6), cs = cz%3; P.z = -1;
+    const d = await ask(scene('THEIR KICK', ok, `<h3>Choose Keeper Dive</h3><p class="sub">Read ${ok.name}'s habits and lock in where your keeper goes. Exact corner = best chance; right side only = partial.</p><div class="zg">${zoneBtns()}</div><button class="btn wide" onclick="P.z>=0&&_r(P.z)">Commit Dive</button>`));
+    const o = Math.random() < (100-ok.pen)/350 ? 'miss' : (Math.random() < Math.min(.95,(d===cz?.8:d%3===cs?.4:0)*gu)) ? 'save' : 'goal';
     if (o==='goal') os++; od.push(o==='goal');
-    await shot(o, cz, d, 'THEIR KICK', ok, o==='goal'?'😬 They score':o==='save'?'🧤 SAVE! You stopped it!':'🙌 They missed!');
+    await shot(o, cz, d%3, 'THEIR KICK', ok, o==='goal'?'😬 They score':o==='save'?'🧤 SAVE! You stopped it!':'🙌 They missed!');
     if (done(true)) break;
     r++;
   }
