@@ -8,7 +8,7 @@ const FORM = {
 };
 const penOf = (pos,r) => Math.min(99, GRP[pos]==='ST'?r : GRP[pos]==='MF'?r-2 : GRP[pos]==='DF'?r-10 : 55+Math.round((r-60)*.3));
 const PLAYERS = RTT.players.map(a => ({name:a[0], pos:a[1], num:a[2], rating:a[3], from:a[4], to:a[5], chk:a[6]||0, grp:GRP[a[1]], pen:penOf(a[1],a[3]), gk:a[1]==='GK'?Math.min(99,a[3]+3):0}));
-const COACHES = RTT.coaches.map(a => ({name:a[0], formation:a[1], rating:a[2], from:a[3], to:a[4]}));
+const COACHES = RTT.coaches.map(a => ({name:a[0], formation:a[1], rating:a[2], from:a[3], to:a[4], style:a[5], boost:a[6], bonus:a[7], tag:a[8]}));
 const rnd = n => Math.floor(Math.random()*n);
 const shuffle = a => { for (let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];} return a; };
 const tier = r => r>=92?'legend':r>=86?'epic':r>=78?'rare':'common';
@@ -24,7 +24,7 @@ const drawCoach = () => pick(COACHES);
 const fits = (slot,p) => ['GK','RB','CB','LB'].includes(slot) ? p.pos===slot : p.grp===slot;
 const drawPlayer = (slot,taken) => pick(PLAYERS.filter(p => fits(slot,p) && !taken.includes(p)));
 
-const strength = (xi, coach, bonus=0) => 0.85*xi.reduce((a,p)=>a+p.rating,0)/xi.length + 0.15*coach.rating + bonus;
+const strength = (xi, coach, bonus=0) => 0.85*xi.reduce((a,p)=>a+p.rating,0)/xi.length + 0.15*coach.rating + (coach.bonus||0) + bonus;
 const seasonLabel = s => `Liverpool ${String(s).slice(2)}/${String(s+1).slice(2)}`;
 
 function seasonTeam(s){
@@ -71,30 +71,32 @@ function pairRound(ids, played){
   return null;
 }
 
-// user = {name, xi, coach}; hasil: {teams, matches, table}
-function runLeague(user){
+// Liga per matchday: leagueSetup -> playDay (x8) -> tableOf
+function leagueSetup(user){
   const seasons = shuffle(Array.from({length:37},(_,i)=>1990+i)).slice(0,23);
-  const teams = [{name:user.name, xi:user.xi, coach:user.coach, strength:strength(user.xi,user.coach), user:true, st:{}}]
-    .concat(seasons.map(seasonTeam));
-  teams.forEach((t,i)=>{ t.id=i; t.pts=0; t.gf=0; t.ga=0; t.w=0; t.d=0; t.l=0; });
-  const matches = [], ids = teams.map(t=>t.id);
-  let played = new Set(), round = 0;
-  while (round<8){
+  const teams = [{name:user.name, xi:user.xi, coach:user.coach, strength:strength(user.xi,user.coach), user:true, st:{}}].concat(seasons.map(seasonTeam));
+  teams.forEach((t,i)=>{ t.id=i; t.pts=t.gf=t.ga=t.w=t.d=t.l=0; });
+  const ids = teams.map(t=>t.id), rounds = []; let played = new Set();
+  while (rounds.length<8){
     const pairs = pairRound(ids, played);
-    if (!pairs){ played = new Set(); round = 0; matches.length = 0; teams.forEach(t=>{t.pts=t.gf=t.ga=t.w=t.d=t.l=0; t.st={};}); continue; }
-    pairs.forEach(([x,y]) => {
-      played.add(x+'-'+y); played.add(y+'-'+x);
-      const [h,a] = Math.random()<0.5 ? [teams[x],teams[y]] : [teams[y],teams[x]];
-      const [gh,ga] = playMatch(h,a);
-      h.gf+=gh; h.ga+=ga; a.gf+=ga; a.ga+=gh;
-      if (gh>ga){h.pts+=3;h.w++;a.l++;} else if (gh<ga){a.pts+=3;a.w++;h.l++;} else {h.pts++;a.pts++;h.d++;a.d++;}
-      matches.push({round:round+1, h:h.id, a:a.id, gh, ga});
-    });
-    round++;
+    if (!pairs){ played = new Set(); rounds.length = 0; continue; }
+    pairs.forEach(([x,y]) => { played.add(x+'-'+y); played.add(y+'-'+x); });
+    rounds.push(pairs);
   }
-  const table = teams.slice().sort((p,q) => q.pts-p.pts || (q.gf-q.ga)-(p.gf-p.ga) || q.gf-p.gf);
-  return {teams, matches, table};
+  return {teams, rounds, matches:[], day:0};
 }
+function playDay(L){
+  if (L.day>=8) return;
+  L.rounds[L.day].forEach(([x,y]) => {
+    const [h,a] = Math.random()<0.5 ? [L.teams[x],L.teams[y]] : [L.teams[y],L.teams[x]];
+    const [gh,ga] = playMatch(h,a);
+    h.gf+=gh; h.ga+=ga; a.gf+=ga; a.ga+=gh;
+    if (gh>ga){h.pts+=3;h.w++;a.l++;} else if (gh<ga){a.pts+=3;a.w++;h.l++;} else {h.pts++;a.pts++;h.d++;a.d++;}
+    L.matches.push({day:L.day+1, h:h.id, a:a.id, gh, ga});
+  });
+  L.day++;
+}
+const tableOf = L => L.teams.slice().sort((p,q) => q.pts-p.pts || (q.gf-q.ga)-(p.gf-p.ga) || q.gf-p.gf);
 
 // ---- Knockout & penghargaan ----
 function cpuKO(a,b){
